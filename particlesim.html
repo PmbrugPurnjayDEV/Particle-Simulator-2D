@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Effects Simulator</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; background-color: black; }
+        .embed-button { position: fixed; top: 20px; left: 20px; padding: 10px; background-color: #007bff; color: #fff; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <canvas id="effectsCanvas"></canvas>
+    <button class="embed-button" onclick="embedGame()">Embed Game</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script>
+        const canvas = document.getElementById('effectsCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Particle class
+        class Particle {
+            constructor(x, y, velocityX, velocityY, size, color) {
+                this.x = x;
+                this.y = y;
+                this.velocityX = velocityX;
+                this.velocityY = velocityY;
+                this.size = size;
+                this.color = color;
+            }
+
+            // Update particle position and handle collision with walls
+            update() {
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+
+                // Check collision with walls
+                if (this.x - this.size < 0 || this.x + this.size > canvas.width) {
+                    this.velocityX *= -1; // Reverse velocity to bounce back
+                }
+                if (this.y - this.size < 0 || this.y + this.size > canvas.height) {
+                    this.velocityY *= -1; // Reverse velocity to bounce back
+                }
+            }
+
+            // Draw particle on canvas
+            draw(ctx) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // Rectangle class
+        class Rectangle {
+            constructor(x, y, width, height, velocityX, color) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.velocityX = velocityX;
+                this.color = color;
+            }
+
+            // Update rectangle position and handle collision with walls
+            update() {
+                this.x += this.velocityX;
+
+                // Check collision with walls
+                if (this.x + this.width < 0) {
+                    this.x = canvas.width; // Reset position when rectangle goes off-screen
+                }
+            }
+
+            // Draw rectangle on canvas
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        // SmokeParticle class
+        class SmokeParticle {
+            constructor(x, y, velocityX, velocityY, size, color) {
+                this.x = x;
+                this.y = y;
+                this.velocityX = velocityX;
+                this.velocityY = velocityY;
+                this.size = size;
+                this.color = color;
+                this.alpha = 1;
+            }
+
+            // Update smoke particle position and opacity
+            update() {
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                this.alpha -= 0.01; // Fade out over time
+            }
+
+            // Draw smoke particle on canvas
+            draw(ctx) {
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+                ctx.globalAlpha = 1; // Reset global alpha for other elements
+            }
+        }
+
+        // Particle system class
+        class ParticleSystem {
+            constructor() {
+                this.particles = [];
+                this.rectangles = [];
+                this.smokeParticles = [];
+            }
+
+            // Add a new particle to the system
+            addParticle(particle) {
+                this.particles.push(particle);
+            }
+
+            // Add a new rectangle to the system
+            addRectangle(rectangle) {
+                this.rectangles.push(rectangle);
+            }
+
+            // Add a new smoke particle to the system
+            addSmokeParticle(smokeParticle) {
+                this.smokeParticles.push(smokeParticle);
+            }
+
+            // Update all particles, rectangles, and smoke particles in the system
+            update() {
+                this.particles.forEach(particle => {
+                    particle.update();
+                });
+
+                this.rectangles.forEach(rectangle => {
+                    rectangle.update();
+                });
+
+                this.smokeParticles.forEach(smokeParticle => {
+                    smokeParticle.update();
+                });
+            }
+
+            // Draw all particles, rectangles, and smoke particles on canvas
+            draw(ctx) {
+                this.particles.forEach(particle => {
+                    particle.draw(ctx);
+                });
+
+                this.rectangles.forEach(rectangle => {
+                    rectangle.draw(ctx);
+                });
+
+                this.smokeParticles.forEach(smokeParticle => {
+                    smokeParticle.draw(ctx);
+                });
+            }
+        }
+
+        // Initialize particle system
+        const particleSystem = new ParticleSystem();
+
+        // Function to create particles with specified size and speed
+        function createParticles(x, y, size, speed) {
+            for (let i = 0; i < 10; i++) {
+                const velocityX = (Math.random() * 2 - 1) * speed; // Random velocity in x-direction
+                const velocityY = (Math.random() * 2 - 1) * speed; // Random velocity in y-direction
+                const color = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 1)`; // Random color
+                const particle = new Particle(x, y, velocityX, velocityY, size, color);
+                particleSystem.addParticle(particle);
+            }
+        }
+
+        // Function to create rectangles moving across the canvas
+        function createRectangles() {
+            const height = Math.random() * 50 + 10; // Random height between 10 and 60
+            const velocityX = Math.random() * 2 + 1; // Random velocity between 1 and 3
+            const color = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, 1)`; // Random color
+            const rectangle = new Rectangle(-50, Math.random() * (canvas.height - height), 50, height, velocityX, color);
+            particleSystem.addRectangle(rectangle);
+        }
+
+        // Function to create smoke particles
+        function createSmoke(x, y) {
+            for (let i = 0; i < 5; i++) {
+                const velocityX = Math.random() * 2 - 1; // Random velocity in x-direction
+                const velocityY = Math.random() * -1; // Random velocity in y-direction (upward)
+                const size = Math.random() * 10 + 5; // Random size between 5 and 15
+                const color = `rgba(150, 150, 150, ${Math.random()})`; // Grayish color with random opacity
+                const smokeParticle = new SmokeParticle(x, y, velocityX, velocityY, size, color);
+                particleSystem.addSmokeParticle(smokeParticle);
+            }
+        }
+
+        // Update and render loop
+        function loop() {
+            requestAnimationFrame(loop);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particleSystem.update();
+            particleSystem.draw(ctx);
+        }
+
+        // Start the loop
+        loop();
+
+        // Event listener for mouse click to create particles
+        canvas.addEventListener('click', (event) => {
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+            createParticles(mouseX, mouseY, particleSettings.size, particleSettings.speed);
+            createSmoke(mouseX, mouseY);
+        });
+
+        // Function to embed the game and copy the embed code to clipboard
+        function embedGame() {
+            const embedCode = `<iframe src="${window.location.href}" width="800" height="600" frameborder="0"></iframe>`;
+            navigator.clipboard.writeText(embedCode)
+                .then(() => {
+                    alert('Embed code copied to clipboard:\n\n' + embedCode);
+                })
+                .catch((error) => {
+                    console.error('Failed to copy embed code: ', error);
+                });
+        }
+
+        // Create GUI for particle settings
+        const gui = new dat.GUI();
+        const particleSettings = {
+            size: 5,
+            speed: 1
+        };
+        const particleFolder = gui.addFolder('Particle Settings');
+        particleFolder.add(particleSettings, 'size', 1, 20).name('Particle Size');
+        particleFolder.add(particleSettings, 'speed', 0, 5).name('Particle Speed');
+
+        // Add button to create rectangles
+        gui.add({ createRectangles: createRectangles }, 'createRectangles').name('Create Rectangles');
+    </script>
+</body>
+</html>
